@@ -1,0 +1,950 @@
+-- BurgerHub local preview (LocalScript for Roblox Studio StarterPlayerScripts)
+-- The original document contained a server-flooding routine; this version does not contact the server.
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+-- Destroy any existing instance
+local oldGui = PlayerGui:FindFirstChild("BurgerHubGui")
+if oldGui then
+   oldGui:Destroy()
+end
+-- Bypass Parameters
+local DEPTH_V1 = 296
+local DEPTH_V2 = 25
+local SPAM_DELAY = 0.12
+local running = false
+local spamThread = nil
+local bomb = nil
+-- Configuration & State
+local state = {
+   Active = false,
+   Device = "PC",
+   Version = "V1",
+   Keybind = nil,
+   WaitingForKey = false,
+   Power = 85000,
+   AutoBrainrot = true,
+   LastBrainrotState = false,
+   Scale = 0.6,
+   BackgroundIndex = 1,
+   StartedAt = 0
+}
+local BACKGROUND_IMAGES = {
+   "rbxassetid://103458796266207",
+   "rbxassetid://87175665223686"
+}
+-- Local-only preview. No remote events or server requests are made.
+local function stopBypass()
+    -- Kept as a local UI lifecycle hook.
+end
+local function startBypass(_power, _version)
+    -- Kept as a local UI lifecycle hook.
+end
+-- ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BurgerHubGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = PlayerGui
+-- Main Window
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 320, 0, 380)
+Main.Position = UDim2.new(0.5, -160, 0.5, -190)
+Main.BackgroundColor3 = Color3.new(0.0470588, 0.0627451, 0.101961) -- Color3.fromRGB(12, 16, 26)
+Main.BorderSizePixel = 0
+Main.ClipsDescendants = true
+Main.Active = true
+Main.Parent = ScreenGui
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.Parent = Main
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.new(0.156863, 0.235294, 0.352941) -- Color3.fromRGB(40, 60, 90)
+MainStroke.Thickness = 1.5
+MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+MainStroke.Parent = Main
+local MainScale = Instance.new("UIScale")
+MainScale.Scale = 0.6
+MainScale.Parent = Main
+local BackgroundImage = Instance.new("ImageLabel")
+BackgroundImage.Name = "BackgroundImage"
+BackgroundImage.Size = UDim2.new(1, 0, 1, 0)
+BackgroundImage.BackgroundTransparency = 1
+BackgroundImage.Image = BACKGROUND_IMAGES[1]
+BackgroundImage.ScaleType = Enum.ScaleType.Crop
+BackgroundImage.ImageTransparency = 0.35
+BackgroundImage.ZIndex = 0
+BackgroundImage.Parent = Main
+local BgCorner = Instance.new("UICorner")
+BgCorner.CornerRadius = UDim.new(0, 14)
+BgCorner.Parent = BackgroundImage
+-- TitleBar
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 42)
+TitleBar.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314) -- Color3.fromRGB(8, 12, 20)
+TitleBar.BorderSizePixel = 0
+TitleBar.ZIndex = 2
+TitleBar.Parent = Main
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 14)
+TitleCorner.Parent = TitleBar
+local TitleSquare = Instance.new("Frame")
+TitleSquare.Size = UDim2.new(1, 0, 0, 14)
+TitleSquare.Position = UDim2.new(0, 0, 1, -14)
+TitleSquare.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+TitleSquare.BorderSizePixel = 0
+TitleSquare.ZIndex = 2
+TitleSquare.Parent = TitleBar
+local TitleSquareCorner = Instance.new("UICorner")
+TitleSquareCorner.CornerRadius = UDim.new(0, 14)
+TitleSquareCorner.Parent = TitleSquare
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(0, 160, 0, 16)
+TitleText.Position = UDim2.new(0, 12, 0, 6)
+TitleText.BackgroundTransparency = 1
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextSize = 13
+TitleText.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Text = "BurgerHub Preview"
+TitleText.ZIndex = 3
+TitleText.Parent = TitleBar
+local SubtitleText = Instance.new("TextLabel")
+SubtitleText.Size = UDim2.new(0, 160, 0, 12)
+SubtitleText.Position = UDim2.new(0, 42, 0, 22)
+SubtitleText.BackgroundTransparency = 1
+SubtitleText.Font = Enum.Font.Gotham
+SubtitleText.TextSize = 10
+SubtitleText.TextColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+SubtitleText.TextXAlignment = Enum.TextXAlignment.Left
+SubtitleText.Text = "BurgerHub"
+SubtitleText.ZIndex = 3
+SubtitleText.Parent = TitleBar
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 24, 0, 24)
+MinBtn.Position = UDim2.new(1, -28, 0.5, -12)
+MinBtn.BackgroundColor3 = Color3.new(0.0784314, 0.109804, 0.164706)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 14
+MinBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+MinBtn.Text = "−"
+MinBtn.AutoButtonColor = false
+MinBtn.ZIndex = 3
+MinBtn.Parent = TitleBar
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 8)
+MinCorner.Parent = MinBtn
+-- Tab Bar
+local TabBar = Instance.new("Frame")
+TabBar.Name = "TabBar"
+TabBar.Size = UDim2.new(1, -24, 0, 32)
+TabBar.Position = UDim2.new(0, 12, 0, 50)
+TabBar.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+TabBar.BorderSizePixel = 0
+TabBar.ZIndex = 2
+TabBar.Parent = Main
+local TabCorner = Instance.new("UICorner")
+TabCorner.CornerRadius = UDim.new(0, 8)
+TabCorner.Parent = TabBar
+local TabListLayout = Instance.new("UIListLayout")
+TabListLayout.FillDirection = Enum.FillDirection.Horizontal
+TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+TabListLayout.Padding = UDim.new(0, 4)
+TabListLayout.Parent = TabBar
+local TabPadding = Instance.new("UIPadding")
+TabPadding.PaddingLeft = UDim.new(0, 4)
+TabPadding.PaddingRight = UDim.new(0, 4)
+TabPadding.PaddingTop = UDim.new(0, 4)
+TabPadding.PaddingBottom = UDim.new(0, 4)
+TabPadding.Parent = TabBar
+local MainTabBtn = Instance.new("TextButton")
+MainTabBtn.Size = UDim2.new(0.5, -4, 1, 0)
+MainTabBtn.BackgroundColor3 = Color3.new(0.0784314, 0.109804, 0.164706)
+MainTabBtn.Font = Enum.Font.GothamBold
+MainTabBtn.TextSize = 11
+MainTabBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+MainTabBtn.Text = "Main"
+MainTabBtn.AutoButtonColor = false
+MainTabBtn.ZIndex = 3
+MainTabBtn.Parent = TabBar
+local MainTabCorner = Instance.new("UICorner", MainTabBtn)
+MainTabCorner.CornerRadius = UDim.new(0, 6)
+local SettingsTabBtn = Instance.new("TextButton")
+SettingsTabBtn.Size = UDim2.new(0.5, -4, 1, 0)
+SettingsTabBtn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+SettingsTabBtn.Font = Enum.Font.GothamBold
+SettingsTabBtn.TextSize = 11
+SettingsTabBtn.TextColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+SettingsTabBtn.Text = "Settings"
+SettingsTabBtn.AutoButtonColor = false
+SettingsTabBtn.ZIndex = 3
+SettingsTabBtn.Parent = TabBar
+local SettingsTabCorner = Instance.new("UICorner", SettingsTabBtn)
+SettingsTabCorner.CornerRadius = UDim.new(0, 6)
+-- Pages Container
+local PagesContainer = Instance.new("Frame")
+PagesContainer.Name = "PagesContainer"
+PagesContainer.Size = UDim2.new(1, -24, 1, -140)
+PagesContainer.Position = UDim2.new(0, 12, 0, 90)
+PagesContainer.BackgroundTransparency = 1
+PagesContainer.ZIndex = 2
+PagesContainer.Parent = Main
+-- Helper function to make card row
+local function createCardRow(layoutOrder, parent)
+   local row = Instance.new("Frame")
+   row.Size = UDim2.new(1, 0, 0, 40)
+   row.BackgroundColor3 = Color3.new(0.0784314, 0.109804, 0.164706)
+   row.BorderSizePixel = 0
+   row.LayoutOrder = layoutOrder
+   row.ZIndex = 2
+   row.Parent = parent
+   local corner = Instance.new("UICorner")
+   corner.CornerRadius = UDim.new(0, 10)
+   corner.Parent = row
+   local stroke = Instance.new("UIStroke")
+   stroke.Color = Color3.new(0.156863, 0.235294, 0.352941)
+   stroke.Thickness = 1
+   stroke.Parent = row
+   return row
+end
+-- ==================== MAIN PAGE ====================
+local MainPage = Instance.new("Frame")
+MainPage.Name = "MainPage"
+MainPage.Size = UDim2.new(1, 0, 1, 0)
+MainPage.BackgroundTransparency = 1
+MainPage.Visible = true
+MainPage.ZIndex = 2
+MainPage.Parent = PagesContainer
+local MainListLayout = Instance.new("UIListLayout")
+MainListLayout.Padding = UDim.new(0, 10)
+MainListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+MainListLayout.Parent = MainPage
+-- Row 1: Device
+local deviceRow = createCardRow(1, MainPage)
+local deviceLabel = Instance.new("TextLabel")
+deviceLabel.Size = UDim2.new(0.4, 0, 1, 0)
+deviceLabel.Position = UDim2.new(0, 14, 0, 0)
+deviceLabel.BackgroundTransparency = 1
+deviceLabel.Font = Enum.Font.GothamMedium
+deviceLabel.TextSize = 12
+deviceLabel.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+deviceLabel.TextXAlignment = Enum.TextXAlignment.Left
+deviceLabel.Text = "Device"
+deviceLabel.ZIndex = 3
+deviceLabel.Parent = deviceRow
+local deviceBtn = Instance.new("TextButton")
+deviceBtn.Size = UDim2.new(0, 90, 0, 26)
+deviceBtn.Position = UDim2.new(1, -104, 0.5, -13)
+deviceBtn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+deviceBtn.Font = Enum.Font.GothamBold
+deviceBtn.TextSize = 12
+deviceBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+deviceBtn.Text = "PC"
+deviceBtn.AutoButtonColor = false
+deviceBtn.ZIndex = 3
+deviceBtn.Parent = deviceRow
+Instance.new("UICorner", deviceBtn).CornerRadius = UDim.new(0, 6)
+local devStroke = Instance.new("UIStroke", deviceBtn)
+devStroke.Color = Color3.new(0.156863, 0.235294, 0.352941)
+devStroke.Thickness = 1
+-- Row 2: Version
+local versionRow = createCardRow(2, MainPage)
+local versionLabel = Instance.new("TextLabel")
+versionLabel.Size = UDim2.new(0.4, 0, 1, 0)
+versionLabel.Position = UDim2.new(0, 14, 0, 0)
+versionLabel.BackgroundTransparency = 1
+versionLabel.Font = Enum.Font.GothamMedium
+versionLabel.TextSize = 12
+versionLabel.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+versionLabel.TextXAlignment = Enum.TextXAlignment.Left
+versionLabel.Text = "Version"
+versionLabel.ZIndex = 3
+versionLabel.Parent = versionRow
+local v1Btn = Instance.new("TextButton")
+v1Btn.Size = UDim2.new(0, 50, 0, 26)
+v1Btn.Position = UDim2.new(1, -114, 0.5, -13)
+v1Btn.BackgroundColor3 = Color3.new(0, 0.54902, 1) -- Color3.fromRGB(0, 140, 255)
+v1Btn.Font = Enum.Font.GothamBold
+v1Btn.TextSize = 12
+v1Btn.TextColor3 = Color3.new(1, 1, 1)
+v1Btn.Text = "V1"
+v1Btn.AutoButtonColor = false
+v1Btn.ZIndex = 3
+v1Btn.Parent = versionRow
+Instance.new("UICorner", v1Btn).CornerRadius = UDim.new(0, 6)
+local v2Btn = Instance.new("TextButton")
+v2Btn.Size = UDim2.new(0, 50, 0, 26)
+v2Btn.Position = UDim2.new(1, -58, 0.5, -13)
+v2Btn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+v2Btn.Font = Enum.Font.GothamBold
+v2Btn.TextSize = 12
+v2Btn.TextColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+v2Btn.Text = "V2"
+v2Btn.AutoButtonColor = false
+v2Btn.ZIndex = 3
+v2Btn.Parent = versionRow
+Instance.new("UICorner", v2Btn).CornerRadius = UDim.new(0, 6)
+-- Row 3: Keybind
+local keybindRow = createCardRow(3, MainPage)
+local keybindLabel = Instance.new("TextLabel")
+keybindLabel.Size = UDim2.new(0.4, 0, 1, 0)
+keybindLabel.Position = UDim2.new(0, 14, 0, 0)
+keybindLabel.BackgroundTransparency = 1
+keybindLabel.Font = Enum.Font.GothamMedium
+keybindLabel.TextSize = 12
+keybindLabel.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+keybindLabel.TextXAlignment = Enum.TextXAlignment.Left
+keybindLabel.Text = "Keybind"
+keybindLabel.ZIndex = 3
+keybindLabel.Parent = keybindRow
+local keybindBtn = Instance.new("TextButton")
+keybindBtn.Size = UDim2.new(0, 100, 0, 26)
+keybindBtn.Position = UDim2.new(1, -114, 0.5, -13)
+keybindBtn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+keybindBtn.Font = Enum.Font.GothamBold
+keybindBtn.TextSize = 12
+keybindBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+keybindBtn.Text = "None"
+keybindBtn.AutoButtonColor = false
+keybindBtn.ZIndex = 3
+keybindBtn.Parent = keybindRow
+Instance.new("UICorner", keybindBtn).CornerRadius = UDim.new(0, 6)
+local keyStroke = Instance.new("UIStroke", keybindBtn)
+keyStroke.Color = Color3.new(0.156863, 0.235294, 0.352941)
+keyStroke.Thickness = 1
+-- Row 4: Power
+local powerRow = createCardRow(4, MainPage)
+local powerLabel = Instance.new("TextLabel")
+powerLabel.Size = UDim2.new(0.4, 0, 1, 0)
+powerLabel.Position = UDim2.new(0, 14, 0, 0)
+powerLabel.BackgroundTransparency = 1
+powerLabel.Font = Enum.Font.GothamMedium
+powerLabel.TextSize = 12
+powerLabel.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+powerLabel.TextXAlignment = Enum.TextXAlignment.Left
+powerLabel.Text = "Power"
+powerLabel.ZIndex = 3
+powerLabel.Parent = powerRow
+local powerInput = Instance.new("TextBox")
+powerInput.Size = UDim2.new(0, 100, 0, 26)
+powerInput.Position = UDim2.new(1, -114, 0.5, -13)
+powerInput.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+powerInput.BorderSizePixel = 0
+powerInput.Font = Enum.Font.GothamBold
+powerInput.TextSize = 13
+powerInput.TextColor3 = Color3.new(0, 0.54902, 1)
+powerInput.PlaceholderText = "85000"
+powerInput.PlaceholderColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+powerInput.Text = "85000"
+powerInput.ClearTextOnFocus = false
+powerInput.TextXAlignment = Enum.TextXAlignment.Center
+powerInput.ZIndex = 3
+powerInput.Parent = powerRow
+Instance.new("UICorner", powerInput).CornerRadius = UDim.new(0, 6)
+local pwrStroke = Instance.new("UIStroke", powerInput)
+pwrStroke.Color = Color3.new(0.156863, 0.235294, 0.352941)
+pwrStroke.Thickness = 1
+-- Row 5: Activate Button
+local activateBtn = Instance.new("TextButton")
+activateBtn.Size = UDim2.new(1, 0, 0, 44)
+activateBtn.BackgroundColor3 = Color3.new(0, 0.54902, 1) -- Color3.fromRGB(0, 140, 255)
+activateBtn.Font = Enum.Font.GothamBold
+activateBtn.TextSize = 15
+activateBtn.TextColor3 = Color3.new(1, 1, 1)
+activateBtn.Text = "START PREVIEW"
+activateBtn.AutoButtonColor = false
+activateBtn.LayoutOrder = 5
+activateBtn.ZIndex = 3
+activateBtn.Parent = MainPage
+Instance.new("UICorner", activateBtn).CornerRadius = UDim.new(0, 10)
+-- ==================== SETTINGS PAGE ====================
+local SettingsPage = Instance.new("Frame")
+SettingsPage.Name = "SettingsPage"
+SettingsPage.Size = UDim2.new(1, 0, 1, 0)
+SettingsPage.BackgroundTransparency = 1
+SettingsPage.Visible = false
+SettingsPage.ZIndex = 2
+SettingsPage.Parent = PagesContainer
+local SettingsListLayout = Instance.new("UIListLayout")
+SettingsListLayout.Padding = UDim.new(0, 10)
+SettingsListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SettingsListLayout.Parent = SettingsPage
+-- Settings Row 1: Background
+local bgRow = createCardRow(1, SettingsPage)
+local bgLabel = Instance.new("TextLabel")
+bgLabel.Size = UDim2.new(0.35, 0, 1, 0)
+bgLabel.Position = UDim2.new(0, 14, 0, 0)
+bgLabel.BackgroundTransparency = 1
+bgLabel.Font = Enum.Font.GothamMedium
+bgLabel.TextSize = 12
+bgLabel.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+bgLabel.TextXAlignment = Enum.TextXAlignment.Left
+bgLabel.Text = "Background"
+bgLabel.ZIndex = 3
+bgLabel.Parent = bgRow
+local bgPrevBtn = Instance.new("TextButton")
+bgPrevBtn.Size = UDim2.new(0, 26, 0, 26)
+bgPrevBtn.Position = UDim2.new(1, -100, 0.5, -13)
+bgPrevBtn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+bgPrevBtn.Font = Enum.Font.GothamBold
+bgPrevBtn.TextSize = 12
+bgPrevBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+bgPrevBtn.Text = "‹"
+bgPrevBtn.AutoButtonColor = false
+bgPrevBtn.ZIndex = 3
+bgPrevBtn.Parent = bgRow
+Instance.new("UICorner", bgPrevBtn).CornerRadius = UDim.new(0, 6)
+local bgPreview = Instance.new("ImageLabel")
+bgPreview.Size = UDim2.new(0, 36, 0, 26)
+bgPreview.Position = UDim2.new(1, -68, 0.5, -13)
+bgPreview.Image = BACKGROUND_IMAGES[1]
+bgPreview.ScaleType = Enum.ScaleType.Crop
+bgPreview.ZIndex = 3
+bgPreview.Parent = bgRow
+Instance.new("UICorner", bgPreview).CornerRadius = UDim.new(0, 6)
+local previewStroke = Instance.new("UIStroke", bgPreview)
+previewStroke.Color = Color3.new(0.156863, 0.235294, 0.352941)
+previewStroke.Thickness = 1
+local bgNextBtn = Instance.new("TextButton")
+bgNextBtn.Size = UDim2.new(0, 26, 0, 26)
+bgNextBtn.Position = UDim2.new(1, -28, 0.5, -13)
+bgNextBtn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+bgNextBtn.Font = Enum.Font.GothamBold
+bgNextBtn.TextSize = 12
+bgNextBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+bgNextBtn.Text = "›"
+bgNextBtn.AutoButtonColor = false
+bgNextBtn.ZIndex = 3
+bgNextBtn.Parent = bgRow
+Instance.new("UICorner", bgNextBtn).CornerRadius = UDim.new(0, 6)
+-- Settings Row 2: Auto Preview
+local brainrotRow = createCardRow(2, SettingsPage)
+local brainrotLabel = Instance.new("TextLabel")
+brainrotLabel.Size = UDim2.new(0.7, 0, 1, 0)
+brainrotLabel.Position = UDim2.new(0, 14, 0, 0)
+brainrotLabel.BackgroundTransparency = 1
+brainrotLabel.Font = Enum.Font.GothamMedium
+brainrotLabel.TextSize = 12
+brainrotLabel.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+brainrotLabel.TextXAlignment = Enum.TextXAlignment.Left
+brainrotLabel.Text = "Auto Preview"
+brainrotLabel.ZIndex = 3
+brainrotLabel.Parent = brainrotRow
+local toggleContainer = Instance.new("Frame")
+toggleContainer.Size = UDim2.new(0, 42, 0, 22)
+toggleContainer.Position = UDim2.new(1, -56, 0.5, -11)
+toggleContainer.BackgroundColor3 = Color3.new(0, 0.54902, 1) -- Color3.fromRGB(0, 140, 255)
+toggleContainer.BorderSizePixel = 0
+toggleContainer.ZIndex = 3
+toggleContainer.Parent = brainrotRow
+Instance.new("UICorner", toggleContainer).CornerRadius = UDim.new(0, 11)
+local toggleKnob = Instance.new("Frame")
+toggleKnob.Size = UDim2.new(0, 16, 0, 16)
+toggleKnob.Position = UDim2.new(0, 23, 0.5, -8) -- ON position: (0, 23, 0.5, -8); OFF: (0, 3, 0.5, -8)
+toggleKnob.BackgroundColor3 = Color3.new(1, 1, 1)
+toggleKnob.BorderSizePixel = 0
+toggleKnob.ZIndex = 4
+toggleKnob.Parent = toggleContainer
+Instance.new("UICorner", toggleKnob).CornerRadius = UDim.new(0, 8)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(1, 0, 1, 0)
+toggleBtn.BackgroundTransparency = 1
+toggleBtn.Text = ""
+toggleBtn.ZIndex = 5
+toggleBtn.Parent = toggleContainer
+-- Settings Row 3: GUI Size
+local sizeRow = createCardRow(3, SettingsPage)
+local sizeLabelTitle = Instance.new("TextLabel")
+sizeLabelTitle.Size = UDim2.new(0.4, 0, 1, 0)
+sizeLabelTitle.Position = UDim2.new(0, 14, 0, 0)
+sizeLabelTitle.BackgroundTransparency = 1
+sizeLabelTitle.Font = Enum.Font.GothamMedium
+sizeLabelTitle.TextSize = 12
+sizeLabelTitle.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+sizeLabelTitle.TextXAlignment = Enum.TextXAlignment.Left
+sizeLabelTitle.Text = "GUI Size"
+sizeLabelTitle.ZIndex = 3
+sizeLabelTitle.Parent = sizeRow
+local sizeMinusBtn = Instance.new("TextButton")
+sizeMinusBtn.Size = UDim2.new(0, 28, 0, 26)
+sizeMinusBtn.Position = UDim2.new(1, -118, 0.5, -13)
+sizeMinusBtn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+sizeMinusBtn.Font = Enum.Font.GothamBold
+sizeMinusBtn.TextSize = 14
+sizeMinusBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+sizeMinusBtn.Text = "−"
+sizeMinusBtn.AutoButtonColor = false
+sizeMinusBtn.ZIndex = 3
+sizeMinusBtn.Parent = sizeRow
+Instance.new("UICorner", sizeMinusBtn).CornerRadius = UDim.new(0, 6)
+local sizeDisplay = Instance.new("TextLabel")
+sizeDisplay.Size = UDim2.new(0, 50, 0, 26)
+sizeDisplay.Position = UDim2.new(1, -86, 0.5, -13)
+sizeDisplay.BackgroundTransparency = 1
+sizeDisplay.Font = Enum.Font.GothamBold
+sizeDisplay.TextSize = 12
+sizeDisplay.TextColor3 = Color3.new(0, 0.54902, 1)
+sizeDisplay.Text = "60%"
+sizeDisplay.ZIndex = 3
+sizeDisplay.Parent = sizeRow
+local sizePlusBtn = Instance.new("TextButton")
+sizePlusBtn.Size = UDim2.new(0, 28, 0, 26)
+sizePlusBtn.Position = UDim2.new(1, -34, 0.5, -13)
+sizePlusBtn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+sizePlusBtn.Font = Enum.Font.GothamBold
+sizePlusBtn.TextSize = 14
+sizePlusBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+sizePlusBtn.Text = "+"
+sizePlusBtn.AutoButtonColor = false
+sizePlusBtn.ZIndex = 3
+sizePlusBtn.Parent = sizeRow
+Instance.new("UICorner", sizePlusBtn).CornerRadius = UDim.new(0, 6)
+-- ==================== BOTTOM BAR ====================
+local BottomBar = Instance.new("Frame")
+BottomBar.Name = "BottomBar"
+BottomBar.Size = UDim2.new(1, 0, 0, 36)
+BottomBar.Position = UDim2.new(0, 0, 1, -36)
+BottomBar.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+BottomBar.BorderSizePixel = 0
+BottomBar.ZIndex = 2
+BottomBar.Parent = Main
+Instance.new("UICorner", BottomBar).CornerRadius = UDim.new(0, 10)
+local StatusText = Instance.new("TextLabel")
+StatusText.Size = UDim2.new(1, -20, 1, 0)
+StatusText.Position = UDim2.new(0, 10, 0, 0)
+StatusText.BackgroundTransparency = 1
+StatusText.Font = Enum.Font.GothamBold
+StatusText.TextSize = 16
+StatusText.TextColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+StatusText.TextXAlignment = Enum.TextXAlignment.Center
+StatusText.Text = "PREVIEW: STOPPED"
+StatusText.ZIndex = 3
+StatusText.Parent = BottomBar
+-- ==================== MINI PANEL ====================
+local MiniPanel = Instance.new("Frame")
+MiniPanel.Name = "MiniPanel"
+MiniPanel.Size = UDim2.new(0, 220, 0, 96)
+MiniPanel.Position = Main.Position
+MiniPanel.BackgroundColor3 = Color3.new(0.0470588, 0.0627451, 0.101961)
+MiniPanel.BorderSizePixel = 0
+MiniPanel.ZIndex = 50
+MiniPanel.Visible = false
+MiniPanel.Parent = ScreenGui
+local MiniCorner = Instance.new("UICorner")
+MiniCorner.CornerRadius = UDim.new(0, 14)
+MiniCorner.Parent = MiniPanel
+local MiniStroke = Instance.new("UIStroke")
+MiniStroke.Color = Color3.new(0.156863, 0.235294, 0.352941)
+MiniStroke.Thickness = 1.5
+MiniStroke.Parent = MiniPanel
+local MiniHeader = Instance.new("Frame")
+MiniHeader.Name = "Header"
+MiniHeader.Size = UDim2.new(1, 0, 0, 34)
+MiniHeader.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+MiniHeader.BorderSizePixel = 0
+MiniHeader.ZIndex = 51
+MiniHeader.Parent = MiniPanel
+Instance.new("UICorner", MiniHeader).CornerRadius = UDim.new(0, 14)
+local MiniHeaderSquare = Instance.new("Frame")
+MiniHeaderSquare.Size = UDim2.new(1, 0, 0, 12)
+MiniHeaderSquare.Position = UDim2.new(0, 0, 1, -12)
+MiniHeaderSquare.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+MiniHeaderSquare.BorderSizePixel = 0
+MiniHeaderSquare.ZIndex = 51
+MiniHeaderSquare.Parent = MiniHeader
+local MiniTitle = Instance.new("TextLabel")
+MiniTitle.Size = UDim2.new(1, -44, 1, 0)
+MiniTitle.Position = UDim2.new(0, 12, 0, 0)
+MiniTitle.BackgroundTransparency = 1
+MiniTitle.Font = Enum.Font.GothamBold
+MiniTitle.TextSize = 13
+MiniTitle.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+MiniTitle.TextXAlignment = Enum.TextXAlignment.Left
+MiniTitle.Text = "BurgerHub Preview"
+MiniTitle.ZIndex = 52
+MiniTitle.Parent = MiniHeader
+local MiniExpandBtn = Instance.new("TextButton")
+MiniExpandBtn.Size = UDim2.new(0, 24, 0, 24)
+MiniExpandBtn.Position = UDim2.new(1, -30, 0.5, -12)
+MiniExpandBtn.BackgroundColor3 = Color3.new(0.0784314, 0.109804, 0.164706)
+MiniExpandBtn.Font = Enum.Font.GothamBold
+MiniExpandBtn.TextSize = 14
+MiniExpandBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+MiniExpandBtn.Text = "+"
+MiniExpandBtn.AutoButtonColor = false
+MiniExpandBtn.ZIndex = 52
+MiniExpandBtn.Parent = MiniHeader
+Instance.new("UICorner", MiniExpandBtn).CornerRadius = UDim.new(0, 6)
+local MiniActBtn = Instance.new("TextButton")
+MiniActBtn.Size = UDim2.new(1, -20, 0, 40)
+MiniActBtn.Position = UDim2.new(0, 10, 0, 44)
+MiniActBtn.BackgroundColor3 = Color3.new(0, 0.54902, 1)
+MiniActBtn.Font = Enum.Font.GothamBold
+MiniActBtn.TextSize = 14
+MiniActBtn.TextColor3 = Color3.new(1, 1, 1)
+MiniActBtn.Text = "START PREVIEW"
+MiniActBtn.AutoButtonColor = false
+MiniActBtn.ZIndex = 51
+MiniActBtn.Parent = MiniPanel
+Instance.new("UICorner", MiniActBtn).CornerRadius = UDim.new(0, 10)
+-- ==================== BurgerHub BILLBOARD ====================
+local function setupBillboard()
+   local char = LocalPlayer.Character
+   if not char then return end
+   local head = char:FindFirstChild("Head")
+   if not head then return end
+   local existing = head:FindFirstChild("BurgerHubBillboard")
+   if existing then
+       existing:Destroy()
+   end
+   local billboard = Instance.new("BillboardGui")
+   billboard.Name = "BurgerHubBillboard"
+   billboard.Adornee = head
+   billboard.Size = UDim2.new(0, 280, 0, 32)
+   billboard.StudsOffset = Vector3.new(0, 6.5, 0)
+   billboard.MaxDistance = 120
+   billboard.AlwaysOnTop = true
+   billboard.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+   billboard.Parent = head
+   local bbFrame = Instance.new("Frame")
+   bbFrame.Size = UDim2.new(1, 0, 1, 0)
+   bbFrame.BackgroundTransparency = 1
+   bbFrame.Parent = billboard
+   local bbLayout = Instance.new("UIListLayout")
+   bbLayout.FillDirection = Enum.FillDirection.Horizontal
+   bbLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+   bbLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+   bbLayout.Parent = bbFrame
+   local bbText1 = Instance.new("TextLabel")
+   bbText1.Size = UDim2.new(0, 0, 1, 0)
+   bbText1.AutomaticSize = Enum.AutomaticSize.X
+   bbText1.BackgroundTransparency = 1
+   bbText1.Font = Enum.Font.GothamBold
+   bbText1.TextSize = 14
+   bbText1.TextColor3 = Color3.new(0.160784, 0.501961, 1)
+   bbText1.TextStrokeTransparency = 0.5
+   bbText1.TextStrokeColor3 = Color3.new(0, 0, 0)
+   bbText1.Text = "BurgerHub "
+   bbText1.Parent = bbFrame
+   local bbText2 = Instance.new("TextLabel")
+   bbText2.Size = UDim2.new(0, 0, 1, 0)
+   bbText2.AutomaticSize = Enum.AutomaticSize.X
+   bbText2.BackgroundTransparency = 1
+   bbText2.Font = Enum.Font.GothamBold
+   bbText2.TextSize = 14
+   bbText2.TextColor3 = Color3.new(1, 1, 1)
+   bbText2.TextStrokeTransparency = 0.5
+   bbText2.TextStrokeColor3 = Color3.new(0, 0, 0)
+   bbText2.Text = "Preview"
+   bbText2.Parent = bbFrame
+end
+-- ==================== DRAGGING SYSTEM ====================
+local function attachDragger(dragHandle, targetWindow)
+   local dragging = false
+   local dragStart = nil
+   local startPos = nil
+   dragHandle.InputBegan:Connect(function(input)
+       if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+           dragging = true
+           dragStart = input.Position
+           startPos = targetWindow.Position
+           input.Changed:Connect(function()
+               if input.UserInputState == Enum.UserInputState.End then
+                   dragging = false
+               end
+           end)
+       end
+   end)
+   UserInputService.InputChanged:Connect(function(input)
+       if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+           local delta = input.Position - dragStart
+           targetWindow.Position = UDim2.new(
+               startPos.X.Scale,
+               startPos.X.Offset + delta.X,
+               startPos.Y.Scale,
+               startPos.Y.Offset + delta.Y
+           )
+       end
+   end)
+end
+attachDragger(TitleBar, Main)
+attachDragger(MiniHeader, MiniPanel)
+-- ==================== HOVER EFFECTS ====================
+local function addHover(button, normalColor, hoverColor)
+   button.MouseEnter:Connect(function()
+       TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+           BackgroundColor3 = hoverColor
+       }):Play()
+   end)
+   button.MouseLeave:Connect(function()
+       TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+           BackgroundColor3 = normalColor
+       }):Play()
+   end)
+end
+addHover(MinBtn, Color3.new(0.0784314, 0.109804, 0.164706), Color3.new(0.137255, 0.176471, 0.235294))
+addHover(MiniExpandBtn, Color3.new(0.0784314, 0.109804, 0.164706), Color3.new(0.137255, 0.176471, 0.235294))
+addHover(deviceBtn, Color3.new(0.0313726, 0.0470588, 0.0784314), Color3.new(0.0784314, 0.109804, 0.164706))
+addHover(keybindBtn, Color3.new(0.0313726, 0.0470588, 0.0784314), Color3.new(0.0784314, 0.109804, 0.164706))
+addHover(bgPrevBtn, Color3.new(0.0313726, 0.0470588, 0.0784314), Color3.new(0.0784314, 0.109804, 0.164706))
+addHover(bgNextBtn, Color3.new(0.0313726, 0.0470588, 0.0784314), Color3.new(0.0784314, 0.109804, 0.164706))
+addHover(sizeMinusBtn, Color3.new(0.0313726, 0.0470588, 0.0784314), Color3.new(0.0784314, 0.109804, 0.164706))
+addHover(sizePlusBtn, Color3.new(0.0313726, 0.0470588, 0.0784314), Color3.new(0.0784314, 0.109804, 0.164706))
+-- ==================== STATE MANAGEMENT ====================
+local function updateVisual()
+   if state.Active then
+       activateBtn.Text = "STOP PREVIEW"
+       MiniActBtn.Text = "STOP PREVIEW"
+       local redColor = Color3.fromRGB(220, 35, 45)
+       TweenService:Create(activateBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+           BackgroundColor3 = redColor
+       }):Play()
+       TweenService:Create(MiniActBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+           BackgroundColor3 = redColor
+       }):Play()
+       StatusText.TextColor3 = Color3.fromRGB(0, 220, 140)
+   else
+       activateBtn.Text = "START PREVIEW"
+       MiniActBtn.Text = "START PREVIEW"
+       local blueColor = Color3.new(0, 0.54902, 1)
+       TweenService:Create(activateBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+           BackgroundColor3 = blueColor
+       }):Play()
+       TweenService:Create(MiniActBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+           BackgroundColor3 = blueColor
+       }):Play()
+       StatusText.Text = "PREVIEW: STOPPED"
+       StatusText.TextColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+   end
+end
+local function setActive(val)
+   if state.Active == val then return end
+   state.Active = val
+   if val then
+       state.StartedAt = os.clock()
+       startBypass(state.Power, state.Version)
+   else
+       stopBypass()
+   end
+   updateVisual()
+end
+-- ==================== EVENT CONNECTORS ====================
+-- Minimize to MiniPanel
+MinBtn.MouseButton1Click:Connect(function()
+   MiniPanel.Position = Main.Position
+   Main.Visible = false
+   MiniPanel.Visible = true
+end)
+-- Expand MiniPanel to Main
+MiniExpandBtn.MouseButton1Click:Connect(function()
+   Main.Position = MiniPanel.Position
+   MiniPanel.Visible = false
+   Main.Visible = true
+end)
+-- Tab Switch: Main
+MainTabBtn.MouseButton1Click:Connect(function()
+   MainPage.Visible = true
+   SettingsPage.Visible = false
+   MainTabBtn.BackgroundColor3 = Color3.new(0.0784314, 0.109804, 0.164706)
+   MainTabBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+   SettingsTabBtn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+   SettingsTabBtn.TextColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+end)
+-- Tab Switch: Settings
+SettingsTabBtn.MouseButton1Click:Connect(function()
+   MainPage.Visible = false
+   SettingsPage.Visible = true
+   SettingsTabBtn.BackgroundColor3 = Color3.new(0.0784314, 0.109804, 0.164706)
+   SettingsTabBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+   MainTabBtn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+   MainTabBtn.TextColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+end)
+-- Device Toggle (PC / Mobile)
+deviceBtn.MouseButton1Click:Connect(function()
+   if state.Device == "PC" then
+       state.Device = "Mobile"
+       deviceBtn.Text = "Mobile"
+       state.Power = 66000
+       powerInput.Text = "66000"
+   else
+       state.Device = "PC"
+       deviceBtn.Text = "PC"
+       state.Power = 85000
+       powerInput.Text = "85000"
+   end
+   if state.Active then
+       startBypass(state.Power, state.Version)
+   end
+end)
+-- Version Toggle (V1 / V2)
+v1Btn.MouseButton1Click:Connect(function()
+   state.Version = "V1"
+   v1Btn.BackgroundColor3 = Color3.new(0, 0.54902, 1)
+   v1Btn.TextColor3 = Color3.new(1, 1, 1)
+   v2Btn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+   v2Btn.TextColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+   if state.Active then
+       startBypass(state.Power, state.Version)
+   end
+end)
+v2Btn.MouseButton1Click:Connect(function()
+   state.Version = "V2"
+   v2Btn.BackgroundColor3 = Color3.new(0, 0.54902, 1)
+   v2Btn.TextColor3 = Color3.new(1, 1, 1)
+   v1Btn.BackgroundColor3 = Color3.new(0.0313726, 0.0470588, 0.0784314)
+   v1Btn.TextColor3 = Color3.new(0.509804, 0.588235, 0.686275)
+   if state.Active then
+       startBypass(state.Power, state.Version)
+   end
+end)
+-- Keybind listener
+keybindBtn.MouseButton1Click:Connect(function()
+   if state.WaitingForKey then return end
+   state.WaitingForKey = true
+   keybindBtn.Text = "..."
+   keybindBtn.TextColor3 = Color3.new(0, 0.54902, 1)
+end)
+UserInputService.InputBegan:Connect(function(input, gpe)
+   if state.WaitingForKey and input.UserInputType == Enum.UserInputType.Keyboard then
+       if input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode ~= Enum.KeyCode.Escape then
+           state.Keybind = input.KeyCode
+           keybindBtn.Text = input.KeyCode.Name
+       else
+           state.Keybind = nil
+           keybindBtn.Text = "None"
+       end
+       keybindBtn.TextColor3 = Color3.new(0.901961, 0.941176, 1)
+       state.WaitingForKey = false
+       return
+   end
+   if not gpe and state.Keybind and input.KeyCode == state.Keybind then
+       setActive(not state.Active)
+   end
+end)
+-- Power input
+powerInput.FocusLost:Connect(function()
+   local val = tonumber(powerInput.Text)
+   if val then
+       state.Power = math.clamp(math.floor(val), 1000, 999999)
+       powerInput.Text = tostring(state.Power)
+       if state.Active then
+           startBypass(state.Power, state.Version)
+       end
+   else
+       powerInput.Text = tostring(state.Power)
+   end
+end)
+-- Activate buttons
+activateBtn.MouseButton1Click:Connect(function()
+   setActive(not state.Active)
+end)
+MiniActBtn.MouseButton1Click:Connect(function()
+   setActive(not state.Active)
+end)
+-- Settings: Background switcher
+local function setBackground(idx)
+   state.BackgroundIndex = idx
+   BackgroundImage.Image = BACKGROUND_IMAGES[idx]
+   bgPreview.Image = BACKGROUND_IMAGES[idx]
+end
+bgPrevBtn.MouseButton1Click:Connect(function()
+   local nextIdx = state.BackgroundIndex - 1
+   if nextIdx < 1 then nextIdx = #BACKGROUND_IMAGES end
+   setBackground(nextIdx)
+end)
+bgNextBtn.MouseButton1Click:Connect(function()
+   local nextIdx = state.BackgroundIndex + 1
+   if nextIdx > #BACKGROUND_IMAGES then nextIdx = 1 end
+   setBackground(nextIdx)
+end)
+-- Settings: Auto Preview toggle switch
+local function updateBrainrotVisual()
+   local knobTarget = state.AutoBrainrot and UDim2.new(0, 23, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+   local containerColor = state.AutoBrainrot and Color3.new(0, 0.54902, 1) or Color3.new(0.137255, 0.176471, 0.235294)
+   TweenService:Create(toggleKnob, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+       Position = knobTarget
+   }):Play()
+   TweenService:Create(toggleContainer, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+       BackgroundColor3 = containerColor
+   }):Play()
+end
+toggleBtn.MouseButton1Click:Connect(function()
+   state.AutoBrainrot = not state.AutoBrainrot
+   updateBrainrotVisual()
+   if not state.AutoBrainrot and state.LastBrainrotState then
+       state.LastBrainrotState = false
+       setActive(false)
+   end
+end)
+-- Settings: GUI Size (+ / -)
+sizeMinusBtn.MouseButton1Click:Connect(function()
+   state.Scale = math.clamp(math.floor((state.Scale - 0.1) * 10 + 0.5) / 10, 0.5, 1.4)
+   MainScale.Scale = state.Scale
+   sizeDisplay.Text = math.floor(state.Scale * 100) .. "%"
+end)
+sizePlusBtn.MouseButton1Click:Connect(function()
+   state.Scale = math.clamp(math.floor((state.Scale + 0.1) * 10 + 0.5) / 10, 0.5, 1.4)
+   MainScale.Scale = state.Scale
+   sizeDisplay.Text = math.floor(state.Scale * 100) .. "%"
+end)
+-- ==================== AUTO BRAINROT ENGINE ====================
+local function checkBrainrot()
+   local char = LocalPlayer.Character
+   if char then
+       local hum = char:FindFirstChildOfClass("Humanoid")
+       if hum and hum.WalkSpeed < 25 then
+           return true
+       end
+   end
+   local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+   if pGui then
+       local targets = {
+           "DuelsMachineSession",
+           "DuelsMachine",
+           "BrainrotUI",
+           "BrainrotSession",
+           "SessionGUI",
+           "DuelsGUI"
+       }
+       for _, name in ipairs(targets) do
+           if pGui:FindFirstChild(name) then
+               return true
+           end
+       end
+   end
+   return false
+end
+RunService.Heartbeat:Connect(function()
+   if not state.AutoBrainrot then return end
+   local isBrainrot = checkBrainrot()
+   if isBrainrot and not state.LastBrainrotState then
+       state.LastBrainrotState = true
+       setActive(true)
+   elseif not isBrainrot and state.LastBrainrotState then
+       state.LastBrainrotState = false
+       setActive(false)
+   end
+end)
+-- Timer & Status Update
+RunService.RenderStepped:Connect(function()
+   if state.Active then
+       local elapsed = math.floor(os.clock() - state.StartedAt)
+       local mins = math.floor(elapsed / 60)
+       local secs = elapsed % 60
+       StatusText.Text = string.format("PREVIEW [%02d:%02d] - %d PWR", mins, secs, state.Power)
+   end
+end)
+-- Character Added Billboard re-attachment
+LocalPlayer.CharacterAdded:Connect(function()
+   task.wait(0.5)
+   setupBillboard()
+end)
+setupBillboard()
+print("[BurgerHub] Local preview loaded")
